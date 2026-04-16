@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkLift — Job Link Cleaner</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237F77DD' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/%3E%3C/svg%3E" />
+  <meta name="description" content="LinkLift cleans LinkedIn redirect links, lnkd.in short links, and extracts URLs from job emails instantly. No install, no tracking — just paste and go." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       CSS VARIABLES & RESET
+    ============================================================ */
+    :root {
+      --bg:          #f8f7ff;
+      --bg-dark:     #0f0e17;
+      --card:        #ffffff;
+      --card-dark:   #1a1825;
+      --accent-start:#7F77DD;
+      --accent-end:  #378ADD;
+      --accent:      linear-gradient(135deg, #7F77DD, #378ADD);
+      --text:        #0f0e17;
+      --text-dark:   #fffffe;
+      --muted:       #6e6d7a;
+      --muted-dark:  #a7a9be;
+      --shadow:      0 4px 24px rgba(0,0,0,0.07);
+      --shadow-dark: 0 4px 24px rgba(0,0,0,0.3);
+      --radius:      16px;
+      --transition:  0.22s ease;
+
+      /* active tokens */
+      --bg-color:      var(--bg);
+      --card-color:    var(--card);
+      --text-color:    var(--text);
+      --muted-color:   var(--muted);
+      --card-shadow:   var(--shadow);
+      --border-color:  rgba(0,0,0,0.07);
+    }
+
+    body.dark {
+      --bg-color:    var(--bg-dark);
+      --card-color:  var(--card-dark);
+      --text-color:  var(--text-dark);
+      --muted-color: var(--muted-dark);
+      --card-shadow: var(--shadow-dark);
+      --border-color: rgba(255,255,255,0.06);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ============================================================
+       KEYFRAMES
+    ============================================================ */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes toastOut {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-color);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .header-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(127,119,221,0.35);
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .logo-name {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-color);
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      transition: color var(--transition);
+    }
+
+    .logo-tagline {
+      font-size: 13px;
+      color: var(--muted-color);
+      font-weight: 400;
+      transition: color var(--transition);
+    }
+
+    /* Dark mode toggle */
+    #theme-toggle {
+      background: var(--card-color);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-color);
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), transform 0.15s ease, box-shadow 0.15s ease;
+      flex-shrink: 0;
+    }
+    #theme-toggle:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.12); transform: scale(1.05); }
+    #theme-toggle:active { transform: scale(0.94); }
+
+    /* ============================================================
+       MAIN / CONTAINER
+    ============================================================ */
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* ============================================================
+       INPUT SECTION
+    ============================================================ */
+    .input-card {
+      background: var(--card-color);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      border: 1.5px solid var(--border-color);
+      padding: 20px;
+      transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    #link-input {
+      width: 100%;
+      min-height: 90px;
+      resize: none;
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+      font-size: 14.5px;
+      line-height: 1.7;
+      padding: 12px 40px 12px 14px;
+      outline: none;
+      overflow: hidden;
+      transition: border-color 0.18s ease, background var(--transition), color var(--transition), box-shadow 0.18s ease;
+    }
+    #link-input::placeholder { color: var(--muted-color); }
+    #link-input:focus {
+      border-color: #7F77DD;
+      box-shadow: 0 0 0 3px rgba(127,119,221,0.15);
+    }
+
+    #clear-input-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: none;
+      background: var(--muted-color);
+      color: var(--card-color);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.55;
+      transition: opacity 0.15s ease, background 0.15s ease, transform 0.1s ease;
+    }
+    #clear-input-btn:hover { opacity: 1; transform: scale(1.1); }
+    #clear-input-btn.visible { display: flex; }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      gap: 12px;
+    }
+
+    .mode-label {
+      font-size: 13px;
+      color: var(--muted-color);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color var(--transition);
+    }
+
+    .mode-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #7F77DD;
+      display: inline-block;
+      transition: background 0.2s;
+    }
+
+    .mode-dot.bulk { background: #378ADD; }
+
+    #clean-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      box-shadow: 0 2px 12px rgba(127,119,221,0.3);
+      transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+      white-space: nowrap;
+    }
+    #clean-btn:hover { opacity: 0.9; box-shadow: 0 4px 18px rgba(127,119,221,0.4); }
+    #clean-btn:active { transform: scale(0.97); }
+
+    /* ============================================================
+       RESULTS HEADER
+    ============================================================ */
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+
+    .results-count {
+      font-size: 13px;
+      color: var(--muted-color);
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+
+    #copy-all-btn {
+      background: var(--card-color);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.1s ease;
+    }
+    #copy-all-btn:hover { border-color: #7F77DD; color: #7F77DD; }
+    #copy-all-btn:active { transform: scale(0.97); }
+
+    /* ============================================================
+       RESULT CARDS
+    ============================================================ */
+    #results-section {
+      margin-top: 24px;
+    }
+
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .result-card {
+      background: var(--card-color);
+      border-radius: var(--radius);
+      box-shadow: var(--card-shadow);
+      border: 1.5px solid var(--border-color);
+      padding: 16px 18px;
+      animation: fadeSlideIn 0.32s ease both;
+      transition: background var(--transition), box-shadow var(--transition), border-color 0.15s ease, transform 0.15s ease;
+    }
+    .result-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+      border-color: rgba(127,119,221,0.3);
+    }
+    .result-card:hover .btn-copy,
+    .result-card:hover .btn-open,
+    .result-card:hover .btn-applied { opacity: 1; }
+    body.dark .result-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-color: rgba(127,119,221,0.25); }
+
+    .result-card[data-hidden="true"] { display: none; }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      flex-shrink: 0;
+    }
+    .badge-redirect-cleaned  { background: #e1f5ee; color: #0f6e56; }
+    .badge-short-link        { background: #faeeda; color: #854f0b; }
+    .badge-direct            { background: #eaf3de; color: #3b6d11; }
+    .badge-broken            { background: #fcebeb; color: #a32d2d; }
+    .badge-not-url           { background: #f1efe8; color: #5f5e5a; }
+    .badge-duplicate         { background: #e8e8ec; color: #6e6d7a; }
+
+    .card-url {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13.5px;
+      color: var(--text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      background: var(--bg-color);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .card-url.broken-url {
+      color: var(--muted-color);
+      font-style: italic;
+    }
+
+    .card-bottom {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-copy, .btn-open {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: opacity 0.15s ease, transform 0.1s ease, background var(--transition), border-color var(--transition), color var(--transition);
+      border: 1.5px solid transparent;
+    }
+
+    .btn-copy {
+      background: var(--bg-color);
+      color: var(--text-color);
+      border-color: var(--border-color);
+    }
+    .btn-copy:hover { border-color: #7F77DD; color: #7F77DD; }
+    .btn-copy:active { transform: scale(0.97); }
+    .btn-copy.copied { background: #e1f5ee; color: #0f6e56; border-color: #a8e0cb; }
+
+    .btn-open {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(127,119,221,0.22);
+    }
+    .btn-open:hover { opacity: 0.88; }
+    .btn-open:active { transform: scale(0.97); }
+    .btn-open:disabled, .btn-copy:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ============================================================
+       EMPTY STATE
+    ============================================================ */
+    .empty-state {
+      margin-top: 8px;
+      padding: 48px 24px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+      animation: fadeSlideIn 0.4s ease both;
+    }
+
+    .empty-icon {
+      margin-bottom: 10px;
+      opacity: 0.22;
+    }
+
+    .empty-title {
+      font-size: 15.5px;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 2px;
+      transition: color var(--transition);
+    }
+
+    .empty-sub {
+      font-size: 13.5px;
+      color: var(--muted-color);
+      margin-bottom: 24px;
+      transition: color var(--transition);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .chip {
+      background: var(--card-color);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease, background var(--transition), transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    .chip:hover { border-color: #7F77DD; color: #7F77DD; box-shadow: 0 2px 12px rgba(127,119,221,0.12); }
+    .chip:active { transform: scale(0.97); }
+
+    /* ============================================================
+       STATS ROW
+    ============================================================ */
+    .stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 14px;
+      animation: fadeSlideIn 0.28s ease both;
+    }
+
+    .stat-pill {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 99px;
+      border: 1.5px solid var(--border-color);
+      background: var(--card-color);
+      color: var(--muted-color);
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    .stat-pill strong {
+      color: var(--text-color);
+      font-weight: 600;
+      transition: color var(--transition);
+    }
+
+    .stat-pill.broken-pill {
+      background: #fcebeb;
+      border-color: #f5c6c6;
+      color: #a32d2d;
+    }
+    .stat-pill.broken-pill strong { color: #a32d2d; }
+
+    /* ============================================================
+       RESULTS HEADER BUTTONS ROW
+    ============================================================ */
+    .results-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #export-csv-btn {
+      background: var(--card-color);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-color);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.1s ease;
+    }
+    #export-csv-btn:hover { border-color: #378ADD; color: #378ADD; }
+    #export-csv-btn:active { transform: scale(0.97); }
+
+    /* ============================================================
+       SESSION HISTORY
+    ============================================================ */
+    #history-section {
+      margin-top: 32px;
+      animation: fadeSlideIn 0.35s ease both;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .history-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted-color);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: color var(--transition);
+    }
+
+    #clear-history-btn {
+      background: none;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted-color);
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 6px;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    #clear-history-btn:hover { color: #a32d2d; background: #fcebeb; }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .history-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .history-row:hover { background: var(--card-color); }
+
+    .history-preview {
+      font-size: 13px;
+      color: var(--text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      transition: color var(--transition);
+    }
+
+    .history-meta {
+      font-size: 12px;
+      color: var(--muted-color);
+      white-space: nowrap;
+      flex-shrink: 0;
+      background: var(--bg-color);
+      border: 1.5px solid var(--border-color);
+      border-radius: 99px;
+      padding: 2px 9px;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+
+    /* ============================================================
+       MARK APPLIED
+    ============================================================ */
+    .result-card.applied {
+      border-left: 3px solid #1D9E75 !important;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    .badge-applied-card {
+      background: #e1f5ee;
+      color: #0f6e56;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: auto;
+    }
+
+    .btn-applied {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-color);
+      color: var(--muted-color);
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+      white-space: nowrap;
+    }
+    .btn-applied:hover  { border-color: #5DCAA5; color: #0f6e56; }
+    .btn-applied:active { transform: scale(0.97); }
+    .btn-applied.is-applied {
+      background: #e1f5ee;
+      color: #0f6e56;
+      border-color: #5DCAA5;
+    }
+
+    /* ============================================================
+       NOTES
+    ============================================================ */
+    .note-preview {
+      font-size: 12.5px;
+      color: var(--muted-color);
+      font-style: italic;
+      margin-bottom: 8px;
+      padding: 0 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: color var(--transition);
+    }
+
+    .btn-note-toggle {
+      background: none;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted-color);
+      cursor: pointer;
+      padding: 2px 0;
+      margin-bottom: 6px;
+      display: block;
+      transition: color 0.15s ease;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: transparent;
+    }
+    .btn-note-toggle:hover {
+      color: #7F77DD;
+      text-decoration-color: #7F77DD;
+    }
+
+    .note-area-wrap {
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.28s ease, opacity 0.22s ease;
+      opacity: 0;
+    }
+    .note-area-wrap.open {
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    .note-textarea {
+      width: 100%;
+      resize: none;
+      min-height: 68px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-color);
+      background: var(--bg-color);
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background var(--transition), color var(--transition);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .note-textarea:focus {
+      border-color: #7F77DD;
+      box-shadow: 0 0 0 3px rgba(127,119,221,0.12);
+    }
+    .note-textarea::placeholder { color: var(--muted-color); font-style: italic; }
+
+    .note-char-count {
+      font-size: 11px;
+      text-align: right;
+      color: var(--muted-color);
+      margin-bottom: 6px;
+      transition: color 0.15s ease;
+    }
+    .note-char-count.warn   { color: #b45309; }
+    .note-char-count.danger { color: #a32d2d; }
+
+    /* ============================================================
+       CARD CONTEXT (Job / Company Label)
+    ============================================================ */
+    .card-context {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 11px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, rgba(127,119,221,0.07), rgba(55,138,221,0.05));
+      border-radius: 9px;
+      border: 1px solid rgba(127,119,221,0.14);
+    }
+    body.dark .card-context {
+      background: linear-gradient(135deg, rgba(127,119,221,0.11), rgba(55,138,221,0.08));
+      border-color: rgba(127,119,221,0.22);
+    }
+    .card-context-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .card-context-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .card-context-company {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color var(--transition);
+    }
+    .card-context-role {
+      font-size: 12px;
+      color: var(--muted-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color var(--transition);
+    }
+
+    /* ============================================================
+       FILTER BAR
+    ============================================================ */
+    .filter-bar {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeSlideIn 0.25s ease both;
+    }
+
+    .filter-segment {
+      display: flex;
+      background: var(--card-color);
+      border: 1.5px solid var(--border-color);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 2px;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .seg-btn {
+      flex: 1;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--muted-color);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+      white-space: nowrap;
+    }
+    .seg-btn.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .seg-btn:not(.active):hover { color: var(--text-color); }
+
+    .filter-type-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .type-pill {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 11px;
+      border-radius: 99px;
+      border: 1.5px solid var(--border-color);
+      background: var(--card-color);
+      color: var(--muted-color);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }
+    .type-pill:active { transform: scale(0.96); }
+    .type-pill.active-all   { background: var(--accent); color: #fff; border-color: transparent; }
+    .type-pill.active-rc    { background: #e1f5ee; color: #0f6e56; border-color: #a8e0cb; }
+    .type-pill.active-dir   { background: #eaf3de; color: #3b6d11; border-color: #b8d98a; }
+    .type-pill.active-sl    { background: #faeeda; color: #854f0b; border-color: #f0cc88; }
+    .type-pill.active-brk   { background: #fcebeb; color: #a32d2d; border-color: #f5c6c6; }
+
+    /* ============================================================
+       SORT DROPDOWN
+    ============================================================ */
+    #sort-select {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-color);
+      background: var(--card-color);
+      color: var(--text-color);
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s ease, background var(--transition), color var(--transition);
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6d7a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    #sort-select:hover { border-color: #7F77DD; }
+
+    /* ============================================================
+       TOAST
+    ============================================================ */
+    #ll-toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0);
+      background: #0f0e17;
+      color: #fffffe;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+      white-space: nowrap;
+      z-index: 9999;
+      pointer-events: none;
+      display: none;
+    }
+    #ll-toast.show {
+      display: block;
+      animation: toastIn 0.22s ease both;
+    }
+    #ll-toast.hide {
+      animation: toastOut 0.3s ease both;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 560px) {
+      .header-inner, main { padding: 14px 16px; }
+      .logo-tagline { display: none; }
+      .input-row { flex-wrap: wrap; }
+      #clean-btn { width: 100%; justify-content: center; }
+      .results-header-right { gap: 6px; }
+      .filter-segment { overflow-x: auto; }
+    }
+
+    /* ============================================================
+       SCROLLBAR POLISH
+    ============================================================ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 6px; }
+    body.dark ::-webkit-scrollbar-thumb { background: #444; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon" aria-hidden="true">
+        <!-- Chain-link SVG -->
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             xmlns="http://www.w3.org/2000/svg" stroke="#fff" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name">LinkLift</span>
+        <span class="logo-tagline">From messy links to clean applications</span>
+      </div>
+    </div>
+
+    <button id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <!-- Sun icon (shown in dark mode) -->
+      <svg id="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+           style="display:none">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <!-- Moon icon (shown in light mode) -->
+      <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ============================================================
+     MAIN
+============================================================ -->
+<main>
+
+  <!-- INPUT SECTION -->
+  <div class="input-card">
+    <div class="input-wrapper">
+      <textarea
+        id="link-input"
+        rows="3"
+        placeholder="Paste a job link or full email text here..."
+        aria-label="Link or email input"
+        spellcheck="false"
+      ></textarea>
+      <button id="clear-input-btn" aria-label="Clear input" title="Clear input">×</button>
+    </div>
+
+    <div class="input-row">
+      <div class="mode-label">
+        <span class="mode-dot" id="mode-dot"></span>
+        <span id="mode-text">Single link mode</span>
+      </div>
+      <button id="clean-btn" aria-label="Clean links">Clean Links →</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION -->
+  <div id="results-section"></div>
+
+  <!-- HISTORY SECTION -->
+  <div id="history-section" style="display:none;"></div>
+
+  <!-- TOAST -->
+  <div id="ll-toast"></div>
+
+</main>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ──────────── CONSTANTS ──────────── */
+  const HISTORY_KEY  = 'linklift_history';
+  const APPLIED_KEY  = 'linklift_applied';
+  const NOTES_KEY    = 'linklift_notes';
+  const HISTORY_MAX  = 10;
+
+  const CHIPS = [
+    {
+      label: 'Try a LinkedIn redirect',
+      value: 'https://www.linkedin.com/safety/go/?url=https%3A%2F%2Fcareers.example.com%2Fjobs%2F123&urlhash=AbCdEf'
+    },
+    {
+      label: 'Try a short link',
+      value: 'https://lnkd.in/gX7rAbC2'
+    },
+    {
+      label: 'Try a job email',
+      value: `Hi all, openings this week:\n\n1. Workato — SDE Intern | Stipend: 75k/month\nApply: https://www.linkedin.com/safety/go/?url=https%3A%2F%2Fcareers.workato.com%2Fjobs%2F456&urlhash=XyZ\n\n2. Razorpay — Product Intern\nApply: https://lnkd.in/gRazorpay1\n\n3. Zepto — Data Analyst\nApply: https://jobs.zepto.com/apply/da-001`
+    }
+  ];
+
+  const BADGE_META = {
+    'redirect-cleaned': { cls: 'badge-redirect-cleaned', label: 'Redirect Cleaned' },
+    'short-link':       { cls: 'badge-short-link',       label: 'Short Link' },
+    'direct':           { cls: 'badge-direct',           label: 'Direct' },
+    'broken':           { cls: 'badge-broken',           label: 'Broken' },
+    'not-url':          { cls: 'badge-not-url',          label: 'Not a URL' }
+  };
+
+  /* ──────────── FILTER / SORT STATE ──────────── */
+  let filterStatus = 'all';       // 'all' | 'not-applied' | 'applied'
+  let filterTypes  = new Set();   // empty = all types
+  let sortOrder    = 'default';   // 'default' | 'applied-last' | 'broken-first' | 'alpha'
+  let _lastResults = [];          // cache for re-filter
+
+  /* ──────────── DOM REFS ──────────── */
+  const themeToggle    = document.getElementById('theme-toggle');
+  const iconSun        = document.getElementById('icon-sun');
+  const iconMoon       = document.getElementById('icon-moon');
+  const textarea       = document.getElementById('link-input');
+  const cleanBtn       = document.getElementById('clean-btn');
+  const clearInputBtn  = document.getElementById('clear-input-btn');
+  const modeDot        = document.getElementById('mode-dot');
+  const modeText       = document.getElementById('mode-text');
+  const resultsEl      = document.getElementById('results-section');
+  const toastEl        = document.getElementById('ll-toast');
+
+  /* ──────────── THEME ──────────── */
+  let dark = false;
+
+  function applyTheme() {
+    document.body.classList.toggle('dark', dark);
+    iconSun.style.display  = dark ? 'block' : 'none';
+    iconMoon.style.display = dark ? 'none'  : 'block';
+  }
+
+  // Respect system preference on first load
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    dark = true;
+    applyTheme();
+  }
+
+  themeToggle.addEventListener('click', () => {
+    dark = !dark;
+    applyTheme();
+  });
+
+  /* ──────────── MODE DETECTION ──────────── */
+  function isBulk(input) {
+    return input.includes('\n') || input.trim().length > 150;
+  }
+
+  function updateMode() {
+    const val = textarea.value;
+    const bulk = isBulk(val);
+    modeText.textContent = bulk ? 'Bulk mode' : 'Single link mode';
+    modeDot.classList.toggle('bulk', bulk);
+  }
+
+  textarea.addEventListener('input', updateMode);
+
+  /* ──────────── AUTO-RESIZE TEXTAREA ──────────── */
+  function resizeTextarea() {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
+  }
+  textarea.addEventListener('input', resizeTextarea);
+
+  /* ──────────── CLEAR BUTTON ──────────── */
+  textarea.addEventListener('input', () => {
+    clearInputBtn.classList.toggle('visible', textarea.value.length > 0);
+  });
+  clearInputBtn.addEventListener('click', () => {
+    textarea.value = '';
+    textarea.style.height = '';
+    clearInputBtn.classList.remove('visible');
+    updateMode();
+    renderEmpty();
+    _lastResults = [];
+  });
+
+  /* ──────────── TOAST ──────────── */
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.className = 'show';
+    setTimeout(() => {
+      toastEl.className = 'hide';
+      setTimeout(() => { toastEl.className = ''; }, 320);
+    }, 1800);
+  }
+
+  /* ──────────── LINK CLEANING LOGIC ──────────── */
+  function cleanLink(url) {
+    url = url.trim();
+
+    // Guard: must contain ://
+    if (!url.includes('://')) {
+      return { clean: null, type: 'not-url', original: url };
+    }
+
+    // Case A — LinkedIn safety redirect (with url param)
+    if (url.includes('linkedin.com/safety/go') && url.includes('url=')) {
+      try {
+        const parsed   = new URL(url);
+        const inner    = parsed.searchParams.get('url');
+        if (inner) {
+          const decoded = decodeURIComponent(inner);
+          return { clean: decoded, type: 'redirect-cleaned', original: url };
+        }
+      } catch (_) {
+        // Fallback: manual split
+        const idx = url.indexOf('url=');
+        if (idx !== -1) {
+          let inner = url.slice(idx + 4);
+          const amp = inner.indexOf('&');
+          if (amp !== -1) inner = inner.slice(0, amp);
+          const decoded = decodeURIComponent(inner);
+          return { clean: decoded, type: 'redirect-cleaned', original: url };
+        }
+      }
+      // Case D — broken redirect (no url= extractable)
+      return { clean: null, type: 'broken', original: url };
+    }
+
+    // Case D — broken LinkedIn redirect (no url=)
+    if (url.includes('linkedin.com/safety/go')) {
+      return { clean: null, type: 'broken', original: url };
+    }
+
+    // Case B — lnkd.in short link
+    if (url.includes('lnkd.in/')) {
+      return { clean: url, type: 'short-link', original: url };
+    }
+
+    // Case C — direct URL
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      return { clean: url, type: 'direct', original: url };
+    }
+
+    // Case E — not a URL
+    return { clean: null, type: 'not-url', original: url };
+  }
+
+  /* Legacy single-pass extractor (kept for reference) */
+  function extractURLs(text) {
+    const regex = /(https?:\/\/[^\s<>"']+)/g;
+    return [...new Set(text.match(regex) || [])];
+  }
+
+  /* Line-aware extractor that captures surrounding context per URL */
+  function extractURLsWithContext(text) {
+    const lines = text.split('\n');
+    const seen  = new Set();
+    const out   = [];
+    lines.forEach((line, idx) => {
+      const re = /(https?:\/\/[^\s<>"']+)/g;
+      let m;
+      while ((m = re.exec(line)) !== null) {
+        const url = m[0];
+        if (seen.has(url)) continue;
+        seen.add(url);
+        out.push({ url, context: findContextAbove(lines, idx) });
+      }
+    });
+    return out;
+  }
+
+  /* Walk up lines looking for a meaningful job/company description */
+  function findContextAbove(lines, urlIdx) {
+    for (let i = urlIdx - 1; i >= Math.max(0, urlIdx - 6); i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      // Skip bare apply / link labels
+      if (/^(apply|link|here|click|job link|apply here|apply link)\s*:?\s*$/i.test(line)) continue;
+      // Skip bare URLs
+      if (/^https?:\/\//i.test(line)) continue;
+      return line;
+    }
+    return null;
+  }
+
+  /* Parse a raw context line into { company, role } */
+  function parseContext(ctx) {
+    if (!ctx) return null;
+    // Strip leading list marker: "1. " "• " "- "
+    const clean = ctx.replace(/^\d+[\.)\s]+/, '').replace(/^[•\-\*]\s*/, '').trim();
+    if (!clean) return null;
+    // Split on em-dash, en-dash, or pipe
+    const parts = clean.split(/\s*[—–|]\s*/);
+    const company = parts[0].trim();
+    const role    = parts.slice(1).join(' · ').trim();
+    return { company: company || clean, role, full: clean };
+  }
+
+  function processInput(raw) {
+    raw = raw.trim();
+    if (!raw) return [];
+
+    let results = [];
+
+    if (isBulk(raw)) {
+      const urlsWithCtx = extractURLsWithContext(raw);
+      results = urlsWithCtx.map(({ url, context }) => ({
+        ...cleanLink(url),
+        context: context || null
+      }));
+    } else {
+      results = [cleanLink(raw)];
+    }
+
+    // Deduplication
+    const seen = new Set();
+    results = results.map(r => {
+      if (r.clean && seen.has(r.clean)) {
+        return { ...r, duplicate: true };
+      }
+      if (r.clean) seen.add(r.clean);
+      return { ...r, duplicate: false };
+    });
+
+    return results;
+  }
+
+  /* ──────────── COPY UTILITY ──────────── */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    // Fallback
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.style.position = 'fixed';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    return Promise.resolve();
+  }
+
+  /* ──────────── RENDER ──────────── */
+  function renderEmpty() {
+    resultsEl.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'empty-state';
+
+    // SVG illustration
+    wrap.innerHTML = `
+      <div class="empty-icon" aria-hidden="true">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </div>
+      <p class="empty-title">Paste a link or job email above</p>
+      <p class="empty-sub">Redirect links, short links, and bulk emails — all cleaned instantly.</p>
+    `;
+
+    // Chips
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'chips';
+
+    CHIPS.forEach(chip => {
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = chip.label;
+      btn.addEventListener('click', () => {
+        textarea.value = chip.value;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+        updateMode();
+        runClean();
+      });
+      chipsWrap.appendChild(btn);
+    });
+
+    wrap.appendChild(chipsWrap);
+    resultsEl.appendChild(wrap);
+  }
+
+  function renderResults(results) {
+    resultsEl.innerHTML = '';
+
+    if (!results || results.length === 0) {
+      renderEmpty();
+      return;
+    }
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'results-header';
+
+    const count = document.createElement('span');
+    count.id = 'results-count-label';
+    count.className = 'results-count';
+    count.textContent = `Found ${results.length} link${results.length !== 1 ? 's' : ''}`;
+
+    // Sort dropdown
+    const sortSel = document.createElement('select');
+    sortSel.id = 'sort-select';
+    sortSel.innerHTML = `
+      <option value="default">Default order</option>
+      <option value="applied-last">Applied last</option>
+      <option value="broken-first">Broken first</option>
+      <option value="alpha">Alphabetical</option>
+    `;
+    sortSel.value = sortOrder;
+    sortSel.addEventListener('change', () => {
+      sortOrder = sortSel.value;
+      applyFiltersAndSort();
+    });
+
+    const copyAllBtn = document.createElement('button');
+    copyAllBtn.id = 'copy-all-btn';
+    copyAllBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg> Copy All`;
+    copyAllBtn.addEventListener('click', () => {
+      const all = results
+        .filter(r => r.clean && !r.duplicate)
+        .map(r => r.clean)
+        .join('\n');
+      if (!all) { showToast('Nothing to copy'); return; }
+      copyText(all).then(() => {
+        copyAllBtn.textContent = '✓ Copied!';
+        copyAllBtn.style.color = '#0f6e56';
+        copyAllBtn.style.borderColor = '#a8e0cb';
+        setTimeout(() => {
+          copyAllBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg> Copy All`;
+          copyAllBtn.style.color = '';
+          copyAllBtn.style.borderColor = '';
+        }, 2000);
+      });
+    });
+
+    // Export CSV button
+    const exportBtn = document.createElement('button');
+    exportBtn.id = 'export-csv-btn';
+    exportBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export CSV
+    `;
+    exportBtn.addEventListener('click', () => exportCSV(results));
+
+    const rightGroup = document.createElement('div');
+    rightGroup.className = 'results-header-right';
+    rightGroup.appendChild(sortSel);
+    rightGroup.appendChild(exportBtn);
+    rightGroup.appendChild(copyAllBtn);
+
+    header.appendChild(count);
+    header.appendChild(rightGroup);
+    resultsEl.appendChild(header);
+
+    // Stats row
+    const cleaned = results.filter(r => r.type === 'redirect-cleaned').length;
+    const direct  = results.filter(r => r.type === 'direct').length;
+    const broken  = results.filter(r => r.type === 'broken').length;
+
+    const statsRow = document.createElement('div');
+    statsRow.className = 'stats-row';
+
+    const statPills = [
+      { label: 'Total', value: results.length, cls: '' },
+      { label: 'Cleaned', value: cleaned, cls: '' },
+      { label: 'Direct', value: direct, cls: '' },
+    ];
+    if (broken > 0) statPills.push({ label: 'Broken', value: broken, cls: 'broken-pill' });
+
+    statPills.forEach(p => {
+      const pill = document.createElement('span');
+      pill.className = 'stat-pill' + (p.cls ? ' ' + p.cls : '');
+      pill.innerHTML = `<strong>${p.value}</strong> ${p.label}`;
+      statsRow.appendChild(pill);
+    });
+
+    resultsEl.appendChild(statsRow);
+
+    // Filter bar
+    const filterBar = document.createElement('div');
+    filterBar.className = 'filter-bar';
+    filterBar.id = 'filter-bar';
+
+    // Row 1: Status segment
+    const segRow = document.createElement('div');
+    segRow.className = 'filter-segment';
+    [['all','All'],['not-applied','Not Applied'],['applied','Applied']].forEach(([val, label]) => {
+      const btn = document.createElement('button');
+      btn.className = 'seg-btn' + (filterStatus === val ? ' active' : '');
+      btn.textContent = label;
+      btn.dataset.val = val;
+      btn.addEventListener('click', () => {
+        filterStatus = val;
+        segRow.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+        applyFiltersAndSort();
+      });
+      segRow.appendChild(btn);
+    });
+    filterBar.appendChild(segRow);
+
+    // Row 2: Type pills
+    const typeRow = document.createElement('div');
+    typeRow.className = 'filter-type-row';
+    const typePills = [
+      { val: '__all__', label: 'All Types', cls: 'active-all' },
+      { val: 'redirect-cleaned', label: 'Redirect Cleaned', cls: 'active-rc' },
+      { val: 'direct', label: 'Direct', cls: 'active-dir' },
+      { val: 'short-link', label: 'Short Link', cls: 'active-sl' },
+      { val: 'broken', label: 'Broken', cls: 'active-brk' },
+    ];
+    typePills.forEach(tp => {
+      const p = document.createElement('button');
+      p.className = 'type-pill' + (tp.val === '__all__' && filterTypes.size === 0 ? ' ' + tp.cls : '');
+      if (tp.val !== '__all__' && filterTypes.has(tp.val)) p.classList.add(tp.cls);
+      p.textContent = tp.label;
+      p.dataset.val = tp.val;
+      p.dataset.cls = tp.cls;
+      p.addEventListener('click', () => {
+        if (tp.val === '__all__') {
+          filterTypes.clear();
+        } else {
+          if (filterTypes.has(tp.val)) filterTypes.delete(tp.val);
+          else filterTypes.add(tp.val);
+        }
+        // Update pill active states
+        typeRow.querySelectorAll('.type-pill').forEach(pp => {
+          pp.className = 'type-pill';
+          if (pp.dataset.val === '__all__' && filterTypes.size === 0) pp.classList.add(pp.dataset.cls);
+          else if (pp.dataset.val !== '__all__' && filterTypes.has(pp.dataset.val)) pp.classList.add(pp.dataset.cls);
+        });
+        applyFiltersAndSort();
+      });
+      typeRow.appendChild(p);
+    });
+    filterBar.appendChild(typeRow);
+    resultsEl.appendChild(filterBar);
+
+    // Cards — split into applied/not-applied for ordering
+    const list = document.createElement('div');
+    list.id = 'result-cards-list';
+    list.className = 'results-list';
+
+    const appliedMap = loadApplied();
+    const notesMap   = loadNotes();
+
+    // Sort: applied cards go to bottom
+    const sorted = [
+      ...results.filter(r => !r.clean || !appliedMap[r.clean]),
+      ...results.filter(r =>  r.clean &&  appliedMap[r.clean])
+    ];
+
+    sorted.forEach((r, i) => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      card.style.animationDelay = `${i * 80}ms`;
+      // data attrs for filtering
+      card.dataset.type    = r.type;
+      card.dataset.applied = !!(r.clean && appliedMap[r.clean]) ? 'yes' : 'no';
+
+      const meta        = BADGE_META[r.type] || BADGE_META['not-url'];
+      const isActionable = !!r.clean && !['broken','not-url'].includes(r.type);
+      const displayUrl  = r.clean || r.original || '(unable to parse)';
+      const isApplied   = !!(r.clean && appliedMap[r.clean]);
+      const existingNote= r.clean ? (notesMap[r.clean] || '') : '';
+      const notePreview = existingNote.length > 0
+        ? (existingNote.length > 55 ? existingNote.slice(0, 55) + '…' : existingNote)
+        : '';
+
+      if (isApplied) card.classList.add('applied');
+
+      // Top row
+      const cardTop = document.createElement('div');
+      cardTop.className = 'card-top';
+      cardTop.innerHTML = `
+        <span class="badge ${meta.cls}">${meta.label}</span>
+        ${r.duplicate ? '<span class="badge badge-duplicate">Duplicate</span>' : ''}
+        ${isApplied  ? '<span class="badge-applied-card">✓ Applied</span>' : ''}
+      `;
+      card.appendChild(cardTop);
+
+      // Context block (company + role extracted from email)
+      if (r.context) {
+        const ctx = parseContext(r.context);
+        if (ctx) {
+          const ctxDiv = document.createElement('div');
+          ctxDiv.className = 'card-context';
+          ctxDiv.innerHTML = `
+            <span class="card-context-icon">🏢</span>
+            <div class="card-context-body">
+              <span class="card-context-company" title="${escapeAttr(ctx.company)}">${escapeHtml(ctx.company)}</span>
+              ${ctx.role ? `<span class="card-context-role" title="${escapeAttr(ctx.role)}">${escapeHtml(ctx.role)}</span>` : ''}
+            </div>
+          `;
+          card.appendChild(ctxDiv);
+        }
+      }
+
+      // URL row
+      const urlDiv = document.createElement('div');
+      urlDiv.className = 'card-url' + (!r.clean ? ' broken-url' : '');
+      urlDiv.title = displayUrl;
+      urlDiv.textContent = displayUrl;
+      card.appendChild(urlDiv);
+
+      // Note preview (shown when note exists and panel is closed)
+      const previewEl = document.createElement('div');
+      previewEl.className = 'note-preview';
+      previewEl.textContent = notePreview ? `📝 ${notePreview}` : '';
+      previewEl.style.display = notePreview ? 'block' : 'none';
+      card.appendChild(previewEl);
+
+      // Note toggle button (always visible for actionable cards)
+      let noteToggleBtn = null;
+      let noteWrap = null;
+      if (r.clean) {
+        noteToggleBtn = document.createElement('button');
+        noteToggleBtn.className = 'btn-note-toggle';
+        noteToggleBtn.textContent = existingNote ? 'Edit note' : 'Add note';
+        card.appendChild(noteToggleBtn);
+
+        // Note expand area
+        noteWrap = document.createElement('div');
+        noteWrap.className = 'note-area-wrap';
+
+        const noteTa = document.createElement('textarea');
+        noteTa.className = 'note-textarea';
+        noteTa.placeholder = 'e.g. Applied via referral, awaiting HR response...';
+        noteTa.maxLength = 200;
+        noteTa.value = existingNote;
+        noteTa.rows = 3;
+
+        const charCount = document.createElement('div');
+        charCount.className = 'note-char-count';
+        charCount.textContent = `${existingNote.length} / 200`;
+        updateCharCount(charCount, existingNote.length);
+
+        let saveTimer = null;
+        noteTa.addEventListener('input', () => {
+          const len = noteTa.value.length;
+          charCount.textContent = `${len} / 200`;
+          updateCharCount(charCount, len);
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(() => {
+            setNote(r.clean, noteTa.value.trim());
+            const trimmed = noteTa.value.trim();
+            noteToggleBtn.textContent = trimmed ? 'Edit note' : 'Add note';
+            if (trimmed) {
+              previewEl.textContent = `📝 ${trimmed.length > 55 ? trimmed.slice(0,55)+'…' : trimmed}`;
+              previewEl.style.display = 'block';
+            } else {
+              previewEl.style.display = 'none';
+            }
+          }, 500);
+        });
+
+        noteWrap.appendChild(noteTa);
+        noteWrap.appendChild(charCount);
+        card.appendChild(noteWrap);
+
+        noteToggleBtn.addEventListener('click', () => {
+          const isOpen = noteWrap.classList.toggle('open');
+          previewEl.style.display = (!isOpen && noteTa.value.trim()) ? 'block' : 'none';
+          if (isOpen) noteTa.focus();
+        });
+      }
+
+      // Bottom row
+      const bottomRow = document.createElement('div');
+      bottomRow.className = 'card-bottom';
+      card.appendChild(bottomRow);
+
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'btn-copy';
+      copyBtn.disabled = !r.clean;
+      copyBtn.setAttribute('aria-label', 'Copy URL');
+      copyBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg> Copy`;
+      bottomRow.appendChild(copyBtn);
+
+      if (r.clean) {
+        copyBtn.addEventListener('click', () => {
+          copyText(r.clean).then(() => {
+            copyBtn.classList.add('copied');
+            copyBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg> Copied!`;
+            setTimeout(() => {
+              copyBtn.classList.remove('copied');
+              copyBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg> Copy`;
+            }, 2000);
+          });
+        });
+      }
+
+      // Open button
+      const openBtn = document.createElement('button');
+      openBtn.className = 'btn-open';
+      openBtn.disabled = !isActionable;
+      openBtn.setAttribute('aria-label', 'Open link in new tab');
+      openBtn.textContent = 'Open ↗';
+      if (isActionable) {
+        openBtn.addEventListener('click', () => window.open(r.clean, '_blank', 'noopener,noreferrer'));
+      }
+      bottomRow.appendChild(openBtn);
+
+      // Mark Applied button (only for actionable links)
+      if (r.clean) {
+        const appliedBtn = document.createElement('button');
+        appliedBtn.className = 'btn-applied' + (isApplied ? ' is-applied' : '');
+        appliedBtn.textContent = isApplied ? '✓ Applied' : 'Mark Applied';
+        appliedBtn.setAttribute('aria-label', 'Toggle applied state');
+
+        appliedBtn.addEventListener('click', () => {
+          const nowApplied = toggleApplied(r.clean);
+          appliedBtn.textContent = nowApplied ? '✓ Applied' : 'Mark Applied';
+          appliedBtn.classList.toggle('is-applied', nowApplied);
+          card.classList.toggle('applied', nowApplied);
+          card.dataset.applied = nowApplied ? 'yes' : 'no';
+          // Update top row badge
+          let existingBadge = cardTop.querySelector('.badge-applied-card');
+          if (nowApplied && !existingBadge) {
+            const badge = document.createElement('span');
+            badge.className = 'badge-applied-card';
+            badge.textContent = '✓ Applied';
+            cardTop.appendChild(badge);
+          } else if (!nowApplied && existingBadge) {
+            existingBadge.remove();
+          }
+          // Move card to bottom / restore position smoothly
+          if (nowApplied) {
+            card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+            setTimeout(() => list.appendChild(card), 220);
+          }
+          applyFiltersAndSort();
+        });
+
+        bottomRow.appendChild(appliedBtn);
+      }
+
+      list.appendChild(card);
+    });
+
+    resultsEl.appendChild(list);
+    _lastResults = results;
+    applyFiltersAndSort();
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ──────────── FILTER & SORT ENGINE ──────────── */
+  function applyFiltersAndSort() {
+    const list = document.getElementById('result-cards-list');
+    const countLabel = document.getElementById('results-count-label');
+    if (!list) return;
+
+    const cards = Array.from(list.querySelectorAll('.result-card'));
+    const total = cards.length;
+
+    // --- Filter ---
+    cards.forEach(card => {
+      let show = true;
+      // Status filter
+      if (filterStatus === 'applied'     && card.dataset.applied !== 'yes') show = false;
+      if (filterStatus === 'not-applied' && card.dataset.applied === 'yes') show = false;
+      // Type filter
+      if (filterTypes.size > 0 && !filterTypes.has(card.dataset.type)) show = false;
+      card.dataset.hidden = show ? 'false' : 'true';
+    });
+
+    const visible = cards.filter(c => c.dataset.hidden !== 'true');
+
+    // Update count label
+    if (countLabel) {
+      countLabel.textContent = visible.length === total
+        ? `Found ${total} link${total !== 1 ? 's' : ''}`
+        : `Showing ${visible.length} of ${total} links`;
+    }
+
+    // --- Sort visible cards ---
+    const appliedMapNow = loadApplied();
+    visible.sort((a, b) => {
+      if (sortOrder === 'applied-last') {
+        const aA = a.dataset.applied === 'yes' ? 1 : 0;
+        const bA = b.dataset.applied === 'yes' ? 1 : 0;
+        return aA - bA;
+      }
+      if (sortOrder === 'broken-first') {
+        const aB = a.dataset.type === 'broken' ? 0 : 1;
+        const bB = b.dataset.type === 'broken' ? 0 : 1;
+        return aB - bB;
+      }
+      if (sortOrder === 'alpha') {
+        const aU = (a.querySelector('.card-url') || {}).textContent || '';
+        const bU = (b.querySelector('.card-url') || {}).textContent || '';
+        return aU.localeCompare(bU);
+      }
+      return 0; // default — original insertion order
+    });
+
+    // Re-append in sorted order
+    visible.forEach(c => list.appendChild(c));
+  }
+
+  /* ──────────── CHAR COUNT HELPER ──────────── */
+  function updateCharCount(el, len) {
+    el.classList.remove('warn','danger');
+    if (len >= 190) el.classList.add('danger');
+    else if (len >= 160) el.classList.add('warn');
+  }
+
+  /* ──────────── HELPERS ──────────── */
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function escapeAttr(str) {
+    return str.replace(/"/g, '&quot;');
+  }
+
+  /* ──────────── APPLIED STATE ──────────── */
+  function loadApplied() {
+    try { return JSON.parse(localStorage.getItem(APPLIED_KEY) || '{}'); } catch (_) { return {}; }
+  }
+  function saveApplied(map) {
+    try { localStorage.setItem(APPLIED_KEY, JSON.stringify(map)); } catch (_) {}
+  }
+  function toggleApplied(url) {
+    const map = loadApplied();
+    if (map[url]) { delete map[url]; saveApplied(map); return false; }
+    else          { map[url] = true;  saveApplied(map); return true; }
+  }
+
+  /* ──────────── NOTES ──────────── */
+  function loadNotes() {
+    try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}'); } catch (_) { return {}; }
+  }
+  function saveNotes(map) {
+    try { localStorage.setItem(NOTES_KEY, JSON.stringify(map)); } catch (_) {}
+  }
+  function setNote(url, text) {
+    const map = loadNotes();
+    if (text) map[url] = text;
+    else delete map[url];
+    saveNotes(map);
+  }
+
+  /* ──────────── CSV EXPORT ──────────── */
+  function exportCSV(results) {
+    const header = ['#', 'Type', 'Clean URL', 'Original URL', 'Duplicate'];
+    const rows = results.map((r, i) => [
+      i + 1,
+      r.type,
+      r.clean  || '',
+      r.original || '',
+      r.duplicate ? 'Yes' : 'No'
+    ]);
+
+    const escape = v => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map(row => row.map(escape).join(',')).join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'linklift-export.csv';
+    a.click();
+  }
+
+  /* ──────────── SESSION HISTORY ──────────── */
+  function loadHistory() {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    } catch (_) { return []; }
+  }
+
+  function saveHistory(hist) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist)); } catch (_) {}
+  }
+
+  function addToHistory(raw, linkCount) {
+    const hist = loadHistory();
+    const entry = {
+      id:           Date.now(),
+      timestamp:    new Date().toISOString(),
+      inputPreview: raw.length > 65 ? raw.slice(0, 65) + '...' : raw,
+      inputFull:    raw,
+      linkCount:    linkCount
+    };
+    hist.unshift(entry);
+    if (hist.length > HISTORY_MAX) hist.splice(HISTORY_MAX);
+    saveHistory(hist);
+    renderHistory();
+  }
+
+  function timeAgo(isoStr) {
+    const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+    if (diff < 60)   return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return new Date(isoStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function renderHistory() {
+    const histEl = document.getElementById('history-section');
+    const hist   = loadHistory();
+
+    if (!hist.length) {
+      histEl.style.display = 'none';
+      histEl.innerHTML = '';
+      return;
+    }
+
+    histEl.style.display = 'block';
+    histEl.innerHTML = '';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'history-header';
+    hdr.innerHTML = `<span class="history-title">Recent parses</span>`;
+
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'clear-history-btn';
+    clearBtn.textContent = 'Clear all';
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      saveHistory([]);
+      renderHistory();
+    });
+    hdr.appendChild(clearBtn);
+    histEl.appendChild(hdr);
+
+    // Rows
+    const list = document.createElement('div');
+    list.className = 'history-list';
+
+    hist.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      row.title = entry.inputFull;
+
+      const preview = document.createElement('span');
+      preview.className = 'history-preview';
+      preview.textContent = entry.inputPreview;
+
+      const meta = document.createElement('span');
+      meta.className = 'history-meta';
+      meta.textContent = `${entry.linkCount} link${entry.linkCount !== 1 ? 's' : ''} · ${timeAgo(entry.timestamp)}`;
+
+      row.appendChild(preview);
+      row.appendChild(meta);
+
+      row.addEventListener('click', () => {
+        textarea.value = entry.inputFull;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+        updateMode();
+        runClean();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      list.appendChild(row);
+    });
+
+    histEl.appendChild(list);
+  }
+
+  /* ──────────── RUN CLEAN ──────────── */
+  function runClean() {
+    const raw = textarea.value;
+    if (!raw.trim()) { renderEmpty(); return; }
+    const results = processInput(raw);
+    renderResults(results);
+    addToHistory(raw.trim(), results.length);
+  }
+
+  cleanBtn.addEventListener('click', runClean);
+
+  textarea.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + Enter to clean
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      runClean();
+    }
+  });
+
+  /* ──────────── INITIAL RENDER ──────────── */
+  renderEmpty();
+  renderHistory();
+})();
+</script>
+</body>
+</html>
