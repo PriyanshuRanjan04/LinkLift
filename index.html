@@ -1217,13 +1217,17 @@
 
   /* Walk up lines looking for a meaningful job/company description */
   function findContextAbove(lines, urlIdx) {
-    for (let i = urlIdx - 1; i >= Math.max(0, urlIdx - 6); i--) {
+    for (let i = urlIdx - 1; i >= Math.max(0, urlIdx - 12); i--) {
       const line = lines[i].trim();
       if (!line) continue;
-      // Skip bare apply / link labels
-      if (/^(apply|link|here|click|job link|apply here|apply link)\s*:?\s*$/i.test(line)) continue;
       // Skip bare URLs
       if (/^https?:\/\//i.test(line)) continue;
+      // Skip apply / career-page label lines (with or without extra text after)
+      if (/^(apply|career\s*page|job\s*link|apply\s*link|apply\s*here|apply\s*now|click\s*here|link\s*:)/i.test(line)) continue;
+      // Skip job-detail metadata lines e.g. "Stipend : 35k", "Location: Delhi", "Batch: 2025"
+      if (/^(stipend|salary|ctc|package|batch|location|city|role|position|skills|experience|exp|timings?|duration|notice|joining|last\s*date|deadline|opening|openings|vacancy|vacancies|about|note|regards|hr|contact|dm|ping|comment|interested)\s*[:\-]/i.test(line)) continue;
+      // Skip very short lines
+      if (line.length < 4) continue;
       return line;
     }
     return null;
@@ -1233,9 +1237,22 @@
   function parseContext(ctx) {
     if (!ctx) return null;
     // Strip leading list marker: "1. " "• " "- "
-    const clean = ctx.replace(/^\d+[\.)\s]+/, '').replace(/^[•\-\*]\s*/, '').trim();
+    let clean = ctx.replace(/^\d+[\.)\s]+/, '').replace(/^[•\-\*]\s*/, '').trim();
     if (!clean) return null;
-    // Split on em-dash, en-dash, or pipe
+
+    // Pattern: "CompanyName is hiring for Role"  (most common LinkedIn post format)
+    const hiringMatch = clean.match(/^(.+?)\s+is\s+hiring\s+(?:for\s+|a\s+|an\s+)?(.+)$/i);
+    if (hiringMatch) {
+      return { company: hiringMatch[1].trim(), role: hiringMatch[2].trim(), full: clean };
+    }
+
+    // Pattern: "Hiring at CompanyName" or "Hiring @CompanyName"
+    const hiringAtMatch = clean.match(/^hiring\s+(?:at\s+|@\s*)(.+?)(?:\s*[—–|]\s*(.+))?$/i);
+    if (hiringAtMatch) {
+      return { company: hiringAtMatch[1].trim(), role: (hiringAtMatch[2] || '').trim(), full: clean };
+    }
+
+    // Pattern: "CompanyName — Role" or "CompanyName | Role"
     const parts = clean.split(/\s*[—–|]\s*/);
     const company = parts[0].trim();
     const role    = parts.slice(1).join(' · ').trim();
